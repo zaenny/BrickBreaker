@@ -10,7 +10,7 @@ const BRICK_COLUMNS = 8;
 const BRICK_WIDTH = 90;
 const BRICK_HEIGHT = 20;
 const BRICK_PADDING = 5;
-const INITIAL_BALL_SPEED = 3;
+const INITIAL_BALL_SPEED = 5;
 const MAX_BALL_SPEED = 8;
 
 interface Brick {
@@ -24,13 +24,30 @@ interface Brick {
 const Game: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
+  const initializeBricks = () => {
+    const bricks: Brick[] = [];
+    for (let i = 0; i < BRICK_ROWS; i++) {
+      for (let j = 0; j < BRICK_COLUMNS; j++) {
+        bricks.push({ 
+          x: j * (BRICK_WIDTH + BRICK_PADDING) + BRICK_PADDING, 
+          y: i * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_PADDING + 30,
+          width: BRICK_WIDTH,
+          height: BRICK_HEIGHT,
+          visible: true 
+        });
+      }
+    }
+    return bricks;
+  };
+
+
   const gameStateRef = useRef({
     paddleX: (CANVAS_WIDTH - PADDLE_WIDTH) / 2,
     ballX: CANVAS_WIDTH / 2,
     ballY: CANVAS_HEIGHT - 30,
     ballDX: INITIAL_BALL_SPEED,
     ballDY: -INITIAL_BALL_SPEED,
-    bricks: [] as Brick[],
+    bricks: initializeBricks() as Brick[],
     gameOver: false
   });
 
@@ -48,24 +65,6 @@ const Game: React.FC = () => {
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
-
-    const initializeBricks = () => {
-      const bricks: Brick[] = [];
-      for (let i = 0; i < BRICK_ROWS; i++) {
-        for (let j = 0; j < BRICK_COLUMNS; j++) {
-          bricks.push({ 
-            x: j * (BRICK_WIDTH + BRICK_PADDING) + BRICK_PADDING, 
-            y: i * (BRICK_HEIGHT + BRICK_PADDING) + BRICK_PADDING + 30,
-            width: BRICK_WIDTH,
-            height: BRICK_HEIGHT,
-            visible: true 
-          });
-        }
-      }
-      return bricks;
-    };
-
-    gameStateRef.current.bricks = initializeBricks();
 
     const drawPaddle = () => {
       if (!ctx) return;
@@ -94,6 +93,7 @@ const Game: React.FC = () => {
       });
     };
 
+    /** 주요 디버깅 해야 하는 포인트 1 */
     const collisionDetection = () => {
       gameStateRef.current.bricks.forEach(brick => {
         if (brick.visible) {
@@ -121,6 +121,7 @@ const Game: React.FC = () => {
     };
 
     canvas.addEventListener('mousemove', movePaddle);
+    let renderFrame: number;
 
     const gameLoop = () => {
       if (gameStateRef.current.gameOver) return;
@@ -132,20 +133,30 @@ const Game: React.FC = () => {
       drawBall();
       collisionDetection();
 
+
+      // x축 벽에 닿을 때
       if (gameStateRef.current.ballX + gameStateRef.current.ballDX > CANVAS_WIDTH - BALL_RADIUS || gameStateRef.current.ballX + gameStateRef.current.ballDX < BALL_RADIUS) {
         gameStateRef.current.ballDX = -gameStateRef.current.ballDX;
       }
+      
+      // y축 천장에 닿을 때
       if (gameStateRef.current.ballY + gameStateRef.current.ballDY < BALL_RADIUS) {
         gameStateRef.current.ballDY = -gameStateRef.current.ballDY;
-      } else if (gameStateRef.current.ballY + gameStateRef.current.ballDY > CANVAS_HEIGHT - BALL_RADIUS) {
-        if (gameStateRef.current.ballX > gameStateRef.current.paddleX && gameStateRef.current.ballX < gameStateRef.current.paddleX + PADDLE_WIDTH) {
-          let hitPoint = (gameStateRef.current.ballX - (gameStateRef.current.paddleX + PADDLE_WIDTH / 2)) / (PADDLE_WIDTH / 2);
+      }
+       // y축  땅에 닿을 때 
+      else if (gameStateRef.current.ballY + gameStateRef.current.ballDY > CANVAS_HEIGHT - BALL_RADIUS) {
+        if (
+          // 공이 패들의 x축과 만나는가
+          gameStateRef.current.ballX > gameStateRef.current.paddleX && gameStateRef.current.ballX < gameStateRef.current.paddleX + PADDLE_WIDTH
+        ) {
+          const hitPoint = (gameStateRef.current.ballX - (gameStateRef.current.paddleX + PADDLE_WIDTH / 2)) / (PADDLE_WIDTH / 2);
           gameStateRef.current.ballDX = hitPoint * 5;
           gameStateRef.current.ballDY = -Math.abs(gameStateRef.current.ballDY);
-          
           gameStateRef.current.ballDX = limitBallSpeed(gameStateRef.current.ballDX);
           gameStateRef.current.ballDY = limitBallSpeed(gameStateRef.current.ballDY);
-        } else {
+        } 
+        // 패들과 부딪힌게 아니라면
+        else {
           gameStateRef.current.gameOver = true;
           alert('GAME OVER');
           return;
@@ -159,13 +170,14 @@ const Game: React.FC = () => {
       ctx.fillStyle = 'white';
       ctx.fillText(`Score: ${score}`, 8, 20);
 
-      requestAnimationFrame(gameLoop);
+      renderFrame = requestAnimationFrame(gameLoop);
     };
 
     gameLoop();
 
     return () => {
       canvas.removeEventListener('mousemove', movePaddle);
+      cancelAnimationFrame(renderFrame)
     };
   }, [score]);
 
