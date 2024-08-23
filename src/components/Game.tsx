@@ -24,6 +24,9 @@ interface Brick {
 const Game: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [score, setScore] = useState(0);
+  // 게임의 현재상태를 관리
+  const [gameStatus, setGameStatus] = useState<'idle' | 'playing' | 'over'>('idle');
+
   const initializeBricks = () => {
     const bricks: Brick[] = [];
     for (let i = 0; i < BRICK_ROWS; i++) {
@@ -47,7 +50,7 @@ const Game: React.FC = () => {
     ballY: CANVAS_HEIGHT - 30,
     ballDX: INITIAL_BALL_SPEED,
     ballDY: -INITIAL_BALL_SPEED,
-    bricks: initializeBricks() as Brick[],
+    bricks: [] as Brick[],
     gameOver: false
   });
 
@@ -57,6 +60,21 @@ const Game: React.FC = () => {
       return (speed / currentSpeed) * MAX_BALL_SPEED;
     }
     return speed;
+  };
+
+  // 게임상태를 초기화 
+  const initializeGame = () => {
+    gameStateRef.current = {
+      paddleX: (CANVAS_WIDTH - PADDLE_WIDTH) / 2,
+      ballX: CANVAS_WIDTH / 2,
+      ballY: CANVAS_HEIGHT - 30,
+      ballDX: INITIAL_BALL_SPEED,
+      ballDY: -INITIAL_BALL_SPEED,
+      bricks: initializeBricks(),
+      gameOver: false
+    };
+    setScore(0);
+    setGameStatus('playing');
   };
 
   useEffect(() => {
@@ -124,7 +142,7 @@ const Game: React.FC = () => {
     let renderFrame: number;
 
     const gameLoop = () => {
-      if (gameStateRef.current.gameOver) return;
+      if (gameStatus !== 'playing')  return;
 
       ctx.clearRect(0, 0, CANVAS_WIDTH, CANVAS_HEIGHT);
 
@@ -157,8 +175,7 @@ const Game: React.FC = () => {
         } 
         // 패들과 부딪힌게 아니라면
         else {
-          gameStateRef.current.gameOver = true;
-          alert('GAME OVER');
+          setGameStatus('over');
           return;
         }
       }
@@ -173,13 +190,19 @@ const Game: React.FC = () => {
       renderFrame = requestAnimationFrame(gameLoop);
     };
 
-    gameLoop();
+    if (gameStatus === 'playing') {
+      gameLoop();
+    }
 
     return () => {
       canvas.removeEventListener('mousemove', movePaddle);
       cancelAnimationFrame(renderFrame)
     };
-  }, [score]);
+  }, [gameStatus, score]);
+
+  const handleStartRestart = () => {
+    initializeGame();
+  };
 
   return (
     <div className="flex justify-center items-center h-screen bg-gray-800">
@@ -189,6 +212,25 @@ const Game: React.FC = () => {
         height={CANVAS_HEIGHT}
         className="border-4 border-white"
       />
+      {gameStatus === 'idle' && (
+        <button 
+          onClick={handleStartRestart}
+          className="mt-4 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+        >
+          Start Game
+        </button>
+      )}
+      {gameStatus === 'over' && (
+        <div className="mt-4 text-center">
+          <p className="text-white text-xl mb-2">Game Over! Your score: {score}</p>
+          <button 
+            onClick={handleStartRestart}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Restart Game
+          </button>
+        </div>
+      )}
     </div>
   );
 };
